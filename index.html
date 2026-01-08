@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Retro Maze 3D</title>
+    <style>
+        /* GAYA RETRO & LAYOUT */
+        body {
+            background-color: #202020;
+            color: #33ff00;
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            overflow: hidden; /* Mencegah scroll */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            touch-action: none; /* Mencegah zoom di HP */
+        }
+
+        #game-container {
+            position: relative;
+            border: 4px solid #444;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            background: #000;
+            width: 320px;
+            height: 240px;
+        }
+
+        /* Canvas dirender kecil lalu diperbesar agar terlihat pixelated (retro) */
+        canvas {
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated; 
+            display: block;
+        }
+
+        /* Efek layar tabung (Scanline) */
+        .scanlines {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #33ff00;
+            font-weight: bold;
+            text-shadow: 1px 1px 0 #000;
+            z-index: 5;
+        }
+
+        #win-screen {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            color: #fff;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            text-align: center;
+        }
+        
+        button.restart-btn {
+            margin-top: 10px;
+            padding: 5px 10px;
+            background: #33ff00;
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+        }
+
+        /* KONTROL LAYAR (HP) */
+        .controls {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: 60px 60px 60px;
+            grid-gap: 10px;
+        }
+
+        .btn {
+            width: 60px;
+            height: 60px;
+            background: #444;
+            border: 2px solid #666;
+            color: white;
+            font-size: 24px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            cursor: pointer;
+        }
+        .btn:active { background: #666; }
+        .btn-up { grid-column: 2; }
+        .btn-left { grid-column: 1; grid-row: 2; }
+        .btn-down { grid-column: 2; grid-row: 2; }
+        .btn-right { grid-column: 3; grid-row: 2; }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="ui-layer">CARI PINTU MERAH</div>
+        <canvas id="gameCanvas" width="320" height="240"></canvas>
+        <div class="scanlines"></div>
+        
+        <div id="win-screen">
+            <h2>KAMU MENANG!</h2>
+            <p>Keluar dari maze.</p>
+            <button class="restart-btn" onclick="resetGame()">MAIN LAGI</button>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div class="btn btn-up" id="btnUp">▲</div>
+        <div class="btn btn-left" id="btnLeft">◄</div>
+        <div class="btn btn-down" id="btnDown">▼</div>
+        <div class="btn btn-right" id="btnRight">►</div>
+    </div>
+
+<script>
+    /**
+     * ENGINE RAYCASTING SEDERHANA
+     * Penulis: Gemini AI
+     */
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const winScreen = document.getElementById('win-screen');
+
+    // --- KONFIGURASI GAME ---
+    const SCREEN_WIDTH = 320;
+    const SCREEN_HEIGHT = 240;
+    const TICK_RATE = 30;
+    const FOV = Math.PI / 3; // Field of View (60 derajat)
+    const BLOCK_SIZE = 64;
+    const MAP_SIZE = 16; // 16x16 grid
+    const SPEED = 3.0;
+    const ROT_SPEED = 0.08;
+
+    // --- PETA (1 = Tembok, 0 = Jalan, 2 = Pintu Keluar) ---
+    // Peta didesain manual agar ada lorong
+    const map = [
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+        [1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1],
+        [1,0,1,0,0,0,1,0,0,0,1,0,0,1,0,1],
+        [1,0,1,0,1,1,1,1,1,0,1,1,0,1,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+        [1,1,1,1,0,1,1,0,1,1,1,1,1,1,0,1],
+        [1,0,0,1,0,1,0,0,0,0,0,0,0,0,0,1],
+        [1,0,1,1,0,1,0,1,1,1,1,1,0,1,0,1],
+        [1,0,0,0,0,1,0,1,2,0,0,0,0,1,0,1], // Ada angka 2 di sini (EXIT)
+        [1,0,1,1,1,1,0,1,1,1,1,1,1,1,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    ];
+
+    // --- STATE PEMAIN ---
+    let player = {
+        x: BLOCK_SIZE * 1.5,
+        y: BLOCK_SIZE * 1.5,
+        dir: 0, // Sudut pandang
+        won: false
+    };
+
+    // --- INPUT HANDLING ---
+    const keys = {
+        up: false, down: false, left: false, right: false
+    };
+
+    // Keyboard
+    document.addEventListener('keydown', (e) => {
+        if(e.key === 'ArrowUp' || e.key === 'w') keys.up = true;
+        if(e.key === 'ArrowDown' || e.key === 's') keys.down = true;
+        if(e.key === 'ArrowLeft' || e.key === 'a') keys.left = true;
+        if(e.key === 'ArrowRight' || e.key === 'd') keys.right = true;
+    });
+    document.addEventListener('keyup', (e) => {
+        if(e.key === 'ArrowUp' || e.key === 'w') keys.up = false;
+        if(e.key === 'ArrowDown' || e.key === 's') keys.down = false;
+        if(e.key === 'ArrowLeft' || e.key === 'a') keys.left = false;
+        if(e.key === 'ArrowRight' || e.key === 'd') keys.right = false;
+    });
+
+    // Touch Buttons
+    const bindTouch = (id, key) => {
+        const el = document.getElementById(id);
+        const start = (e) => { e.preventDefault(); keys[key] = true; el.style.background = '#666'; };
+        const end = (e) => { e.preventDefault(); keys[key] = false; el.style.background = '#444'; };
+        el.addEventListener('mousedown', start);
+        el.addEventListener('mouseup', end);
+        el.addEventListener('touchstart', start);
+        el.addEventListener('touchend', end);
+    };
+
+    bindTouch('btnUp', 'up');
+    bindTouch('btnDown', 'down');
+    bindTouch('btnLeft', 'left');
+    bindTouch('btnRight', 'right');
+
+    // --- FUNGSI UPDATE (LOGIKA) ---
+    function update() {
+        if (player.won) return;
+
+        // Rotasi
+        if (keys.left) player.dir -= ROT_SPEED;
+        if (keys.right) player.dir += ROT_SPEED;
+
+        // Gerak Maju/Mundur
+        let moveStep = 0;
+        if (keys.up) moveStep = SPEED;
+        if (keys.down) moveStep = -SPEED;
+
+        let newX = player.x + Math.cos(player.dir) * moveStep;
+        let newY = player.y + Math.sin(player.dir) * moveStep;
+
+        // Deteksi Tabrakan Sederhana (Cek sudut kotak)
+        // Kita kurangi sedikit margin agar tidak nempel dinding
+        const padding = 10;
+        const gridX = Math.floor((newX + (moveStep > 0 ? padding : -padding)) / BLOCK_SIZE);
+        const gridY = Math.floor((newY + (moveStep > 0 ? padding : -padding)) / BLOCK_SIZE);
+
+        // Jika blok bukan tembok (1), boleh jalan
+        // Cek X axis
+        if (map[Math.floor(player.y / BLOCK_SIZE)][gridX] !== 1) {
+            player.x = newX;
+        }
+        // Cek Y axis (memungkinkan sliding di tembok)
+        if (map[gridY][Math.floor(player.x / BLOCK_SIZE)] !== 1) {
+            player.y = newY;
+        }
+
+        // Cek Kondisi Menang (Jika berdiri di atas angka 2)
+        const currentGridX = Math.floor(player.x / BLOCK_SIZE);
+        const currentGridY = Math.floor(player.y / BLOCK_SIZE);
+        if (map[currentGridY][currentGridX] === 2) {
+            player.won = true;
+            winScreen.style.display = 'flex';
+        }
+    }
+
+    // --- FUNGSI RENDER (RAYCASTING) ---
+    function castRays() {
+        // Bersihkan layar
+        // Langit
+        ctx.fillStyle = "#111"; 
+        ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2);
+        // Lantai
+        ctx.fillStyle = "#222";
+        ctx.fillRect(0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2);
+
+        // Raycasting Loop
+        for (let x = 0; x < SCREEN_WIDTH; x+=2) { // x+=2 untuk performa & gaya retro kasar
+            
+            // Hitung sudut ray
+            const rayAngle = (player.dir - FOV / 2.0) + (x / SCREEN_WIDTH) * FOV;
+            
+            const eyeX = Math.cos(rayAngle);
+            const eyeY = Math.sin(rayAngle);
+
+            let distToWall = 0;
+            let hitWall = false;
+            let isExit = false;
+
+            // DDA Algorithm sederhana
+            let testX = Math.floor(player.x / BLOCK_SIZE);
+            let testY = Math.floor(player.y / BLOCK_SIZE);
+            
+            // Step size
+            let stepX = Math.sign(eyeX);
+            let stepY = Math.sign(eyeY);
+            
+            // Jarak ke sisi grid berikutnya
+            let sideDistX = (stepX < 0 ? player.x - testX * BLOCK_SIZE : (testX + 1) * BLOCK_SIZE - player.x) / Math.abs(eyeX);
+            let sideDistY = (stepY < 0 ? player.y - testY * BLOCK_SIZE : (testY + 1) * BLOCK_SIZE - player.y) / Math.abs(eyeY);
+            
+            // Delta distance
+            let deltaDistX = BLOCK_SIZE / Math.abs(eyeX);
+            let deltaDistY = BLOCK_SIZE / Math.abs(eyeY);
+
+            // Batas maksimal ray agar tidak infinite loop
+            while (!hitWall && distToWall < 20 * BLOCK_SIZE) {
+                // Lompat ke kotak berikutnya
+                if (sideDistX < sideDistY) {
+                    sideDistX += deltaDistX;
+                    testX += stepX;
+                    distToWall = (Math.abs((testX * BLOCK_SIZE - player.x + (1 - stepX) * BLOCK_SIZE / 2) / eyeX)); // Fisheye correction later
+                } else {
+                    sideDistY += deltaDistY;
+                    testY += stepY;
+                    distToWall = (Math.abs((testY * BLOCK_SIZE - player.y + (1 - stepY) * BLOCK_SIZE / 2) / eyeY));
+                }
+
+                // Cek batas map
+                if (testX < 0 || testX >= MAP_SIZE || testY < 0 || testY >= MAP_SIZE) {
+                    hitWall = true; distToWall = 20 * BLOCK_SIZE;
+                } else {
+                    // Cek tipe blok
+                    let block = map[testY][testX];
+                    if (block === 1) { hitWall = true; }
+                    else if (block === 2) { hitWall = true; isExit = true; }
+                }
+            }
+
+            // Koreksi Fisheye
+            let correctDist = distToWall * Math.cos(rayAngle - player.dir);
+            
+            // Hitung tinggi tembok
+            let ceiling = SCREEN_HEIGHT / 2.0 - SCREEN_HEIGHT / correctDist * BLOCK_SIZE / 2;
+            let floor = SCREEN_HEIGHT - ceiling;
+            let wallHeight = floor - ceiling;
+
+            // Tentukan Warna
+            let color;
+            if (isExit) {
+                color = `rgb(200, 0, 0)`; // Merah untuk pintu keluar
+            } else {
+                // Shading berdasarkan jarak (semakin jauh semakin gelap)
+                let shade = 255 - (correctDist / 4); 
+                if (shade < 50) shade = 50;
+                color = `rgb(0, ${shade}, 0)`; // Hijau Matrix/Nokia
+            }
+
+            // Gambar garis vertikal (tembok)
+            ctx.fillStyle = color;
+            ctx.fillRect(x, ceiling, 2, wallHeight); // Lebar 2 pixel
+        }
+    }
+
+    // --- GAMBAR MINIMAP (Kiri Atas) ---
+    function drawMinimap() {
+        const scale = 4;
+        const offsetX = 5;
+        const offsetY = 5;
+
+        for (let y = 0; y < MAP_SIZE; y++) {
+            for (let x = 0; x < MAP_SIZE; x++) {
+                if (map[y][x] === 1) ctx.fillStyle = "#555";
+                else if (map[y][x] === 2) ctx.fillStyle = "#f00";
+                else ctx.fillStyle = "#000";
+                
+                ctx.fillRect(offsetX + x * scale, offsetY + y * scale, scale, scale);
+            }
+        }
+        // Posisi Player di minimap
+        ctx.fillStyle = "#0f0";
+        ctx.fillRect(offsetX + (player.x / BLOCK_SIZE) * scale - 1, offsetY + (player.y / BLOCK_SIZE) * scale - 1, 2, 2);
+    }
+
+    // --- GAME LOOP ---
+    function gameLoop() {
+        update();
+        castRays();
+        drawMinimap();
+        requestAnimationFrame(gameLoop);
+    }
+
+    // --- RESET GAME ---
+    function resetGame() {
+        player.x = BLOCK_SIZE * 1.5;
+        player.y = BLOCK_SIZE * 1.5;
+        player.dir = 0;
+        player.won = false;
+        winScreen.style.display = 'none';
+        
+        // Sedikit ubah posisi player agar terasa reset
+        keys.up = false; keys.down = false; keys.left = false; keys.right = false;
+    }
+
+    // Mulai Game
+    gameLoop();
+
+</script>
+</body>
+</html>

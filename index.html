@@ -3,33 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Retro Maze 3D</title>
+    <title>Retro Maze: Shield Quest</title>
     <style>
         /* GAYA RETRO & LAYOUT */
         body {
-            background-color: #202020;
+            background-color: #1a1a1a;
             color: #33ff00;
             font-family: 'Courier New', Courier, monospace;
             margin: 0;
-            overflow: hidden; /* Mencegah scroll */
+            overflow: hidden;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             height: 100vh;
-            touch-action: none; /* Mencegah zoom di HP */
+            touch-action: none;
         }
 
         #game-container {
             position: relative;
-            border: 4px solid #444;
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            border: 4px solid #555;
+            box-shadow: 0 0 25px rgba(0,0,0,0.9);
             background: #000;
             width: 320px;
             height: 240px;
         }
 
-        /* Canvas dirender kecil lalu diperbesar agar terlihat pixelated (retro) */
         canvas {
             width: 100%;
             height: 100%;
@@ -37,11 +36,10 @@
             display: block;
         }
 
-        /* Efek layar tabung (Scanline) */
         .scanlines {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.3));
             background-size: 100% 4px;
             pointer-events: none;
             z-index: 10;
@@ -50,19 +48,29 @@
         /* UI Overlay */
         #ui-layer {
             position: absolute;
-            top: 10px;
-            left: 10px;
+            top: 5px;
+            left: 5px;
+            right: 5px;
+            display: flex;
+            justify-content: space-between;
             color: #33ff00;
             font-weight: bold;
             text-shadow: 1px 1px 0 #000;
             z-index: 5;
+            font-size: 14px;
+        }
+        
+        .status-msg {
+            color: #fff;
+            background: rgba(0,0,0,0.5);
+            padding: 2px 5px;
         }
 
         #win-screen {
             display: none;
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(0, 0, 0, 0.9);
             color: #fff;
             flex-direction: column;
             align-items: center;
@@ -70,101 +78,126 @@
             z-index: 20;
             text-align: center;
         }
-        
+
         button.restart-btn {
-            margin-top: 10px;
-            padding: 5px 10px;
+            margin-top: 15px;
+            padding: 8px 15px;
             background: #33ff00;
             border: none;
             cursor: pointer;
             font-family: inherit;
             font-weight: bold;
+            font-size: 16px;
         }
 
-        /* KONTROL LAYAR (HP) */
-        .controls {
-            margin-top: 20px;
+        /* KONTROL LAYAR */
+        .controls-area {
+            margin-top: 15px;
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .d-pad {
             display: grid;
-            grid-template-columns: 60px 60px 60px;
-            grid-gap: 10px;
+            grid-template-columns: 50px 50px 50px;
+            grid-gap: 5px;
         }
 
         .btn {
-            width: 60px;
-            height: 60px;
-            background: #444;
-            border: 2px solid #666;
-            color: white;
-            font-size: 24px;
-            border-radius: 8px;
+            width: 50px;
+            height: 50px;
+            background: #333;
+            border: 2px solid #555;
+            color: #ddd;
+            font-size: 20px;
+            border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
             user-select: none;
             cursor: pointer;
+            -webkit-user-select: none;
         }
-        .btn:active { background: #666; }
+        .btn:active { background: #555; border-color: #888; }
         .btn-up { grid-column: 2; }
         .btn-left { grid-column: 1; grid-row: 2; }
         .btn-down { grid-column: 2; grid-row: 2; }
         .btn-right { grid-column: 3; grid-row: 2; }
+
+        /* Tombol Peta Khusus */
+        .btn-map {
+            width: 70px;
+            height: 70px;
+            background: #004400;
+            border: 2px solid #00aa00;
+            color: #00ff00;
+            border-radius: 50%;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .btn-map:active { background: #006600; }
 
     </style>
 </head>
 <body>
 
     <div id="game-container">
-        <div id="ui-layer">CARI PINTU MERAH</div>
+        <div id="ui-layer">
+            <span id="shield-count">TAMENG: 0/3</span>
+            <span id="msg-area" class="status-msg">CARI 3 TAMENG!</span>
+        </div>
         <canvas id="gameCanvas" width="320" height="240"></canvas>
         <div class="scanlines"></div>
         
         <div id="win-screen">
-            <h2>KAMU MENANG!</h2>
-            <p>Keluar dari maze.</p>
+            <h2 style="color:#ffff00">MISI SUKSES!</h2>
+            <p>Semua tameng terkumpul<br>dan berhasil keluar.</p>
             <button class="restart-btn" onclick="resetGame()">MAIN LAGI</button>
         </div>
     </div>
 
-    <div class="controls">
-        <div class="btn btn-up" id="btnUp">▲</div>
-        <div class="btn btn-left" id="btnLeft">◄</div>
-        <div class="btn btn-down" id="btnDown">▼</div>
-        <div class="btn btn-right" id="btnRight">►</div>
+    <div class="controls-area">
+        <div class="d-pad">
+            <div class="btn btn-up" id="btnUp">▲</div>
+            <div class="btn btn-left" id="btnLeft">◄</div>
+            <div class="btn btn-down" id="btnDown">▼</div>
+            <div class="btn btn-right" id="btnRight">►</div>
+        </div>
+        <div class="btn btn-map" id="btnMap">PETA</div>
     </div>
 
 <script>
-    /**
-     * ENGINE RAYCASTING SEDERHANA
-     * Penulis: Gemini AI
-     */
-
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const winScreen = document.getElementById('win-screen');
+    const shieldUi = document.getElementById('shield-count');
+    const msgArea = document.getElementById('msg-area');
 
-    // --- KONFIGURASI GAME ---
+    // --- KONFIGURASI ---
     const SCREEN_WIDTH = 320;
     const SCREEN_HEIGHT = 240;
-    const TICK_RATE = 30;
-    const FOV = Math.PI / 3; // Field of View (60 derajat)
+    const FOV = Math.PI / 3;
     const BLOCK_SIZE = 64;
-    const MAP_SIZE = 16; // 16x16 grid
-    const SPEED = 3.0;
-    const ROT_SPEED = 0.08;
+    const MAP_SIZE = 16;
+    const SPEED = 3.5;
+    const ROT_SPEED = 0.07;
+    const TOTAL_SHIELDS = 3;
 
-    // --- PETA (1 = Tembok, 0 = Jalan, 2 = Pintu Keluar) ---
-    // Peta didesain manual agar ada lorong
-    const map = [
+    // --- PETA ---
+    // 0: Jalan, 1: Tembok, 2: Pintu Keluar, 3: TAMENG (Kuning)
+    let map = [
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-        [1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+        [1,0,0,0,0,0,1,0,0,3,0,0,0,0,0,1], // Ada tameng (3)
         [1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1],
         [1,0,1,0,0,0,1,0,0,0,1,0,0,1,0,1],
         [1,0,1,0,1,1,1,1,1,0,1,1,0,1,0,1],
-        [1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1],
+        [1,0,0,0,0,0,0,0,0,0,0,0,0,1,3,1], // Ada tameng (3)
         [1,1,1,1,0,1,1,0,1,1,1,1,1,1,0,1],
-        [1,0,0,1,0,1,0,0,0,0,0,0,0,0,0,1],
+        [1,3,0,1,0,1,0,0,0,0,0,0,0,0,0,1], // Ada tameng (3)
         [1,0,1,1,0,1,0,1,1,1,1,1,0,1,0,1],
-        [1,0,0,0,0,1,0,1,2,0,0,0,0,1,0,1], // Ada angka 2 di sini (EXIT)
+        [1,0,0,0,0,1,0,1,2,0,0,0,0,1,0,1], // Pintu Keluar (2)
         [1,0,1,1,1,1,0,1,1,1,1,1,1,1,0,1],
         [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
@@ -173,18 +206,21 @@
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     ];
 
-    // --- STATE PEMAIN ---
+    // Clone peta asli untuk reset nanti
+    const originalMap = JSON.parse(JSON.stringify(map));
+
     let player = {
         x: BLOCK_SIZE * 1.5,
         y: BLOCK_SIZE * 1.5,
-        dir: 0, // Sudut pandang
+        dir: 0,
+        shields: 0,
         won: false
     };
 
-    // --- INPUT HANDLING ---
-    const keys = {
-        up: false, down: false, left: false, right: false
-    };
+    let showMap = false;
+
+    // --- INPUT ---
+    const keys = { up: false, down: false, left: false, right: false };
 
     // Keyboard
     document.addEventListener('keydown', (e) => {
@@ -192,19 +228,29 @@
         if(e.key === 'ArrowDown' || e.key === 's') keys.down = true;
         if(e.key === 'ArrowLeft' || e.key === 'a') keys.left = true;
         if(e.key === 'ArrowRight' || e.key === 'd') keys.right = true;
+        if(e.key === 'm' || e.key === 'M') showMap = true; // Tombol Peta
     });
     document.addEventListener('keyup', (e) => {
         if(e.key === 'ArrowUp' || e.key === 'w') keys.up = false;
         if(e.key === 'ArrowDown' || e.key === 's') keys.down = false;
         if(e.key === 'ArrowLeft' || e.key === 'a') keys.left = false;
         if(e.key === 'ArrowRight' || e.key === 'd') keys.right = false;
+        if(e.key === 'm' || e.key === 'M') showMap = false;
     });
 
-    // Touch Buttons
-    const bindTouch = (id, key) => {
+    // Touch Handling (D-Pad + Map)
+    const bindTouch = (id, key, isMap = false) => {
         const el = document.getElementById(id);
-        const start = (e) => { e.preventDefault(); keys[key] = true; el.style.background = '#666'; };
-        const end = (e) => { e.preventDefault(); keys[key] = false; el.style.background = '#444'; };
+        const start = (e) => { 
+            e.preventDefault(); 
+            if(isMap) showMap = true; else keys[key] = true; 
+            el.style.opacity = '0.5'; 
+        };
+        const end = (e) => { 
+            e.preventDefault(); 
+            if(isMap) showMap = false; else keys[key] = false; 
+            el.style.opacity = '1'; 
+        };
         el.addEventListener('mousedown', start);
         el.addEventListener('mouseup', end);
         el.addEventListener('touchstart', start);
@@ -215,8 +261,9 @@
     bindTouch('btnDown', 'down');
     bindTouch('btnLeft', 'left');
     bindTouch('btnRight', 'right');
+    bindTouch('btnMap', 'map', true);
 
-    // --- FUNGSI UPDATE (LOGIKA) ---
+    // --- LOGIKA GAME ---
     function update() {
         if (player.won) return;
 
@@ -224,7 +271,7 @@
         if (keys.left) player.dir -= ROT_SPEED;
         if (keys.right) player.dir += ROT_SPEED;
 
-        // Gerak Maju/Mundur
+        // Gerak
         let moveStep = 0;
         if (keys.up) moveStep = SPEED;
         if (keys.down) moveStep = -SPEED;
@@ -232,160 +279,173 @@
         let newX = player.x + Math.cos(player.dir) * moveStep;
         let newY = player.y + Math.sin(player.dir) * moveStep;
 
-        // Deteksi Tabrakan Sederhana (Cek sudut kotak)
-        // Kita kurangi sedikit margin agar tidak nempel dinding
-        const padding = 10;
-        const gridX = Math.floor((newX + (moveStep > 0 ? padding : -padding)) / BLOCK_SIZE);
-        const gridY = Math.floor((newY + (moveStep > 0 ? padding : -padding)) / BLOCK_SIZE);
+        const gridX = Math.floor(newX / BLOCK_SIZE);
+        const gridY = Math.floor(newY / BLOCK_SIZE);
 
-        // Jika blok bukan tembok (1), boleh jalan
-        // Cek X axis
-        if (map[Math.floor(player.y / BLOCK_SIZE)][gridX] !== 1) {
+        // Ambil tipe blok di posisi tujuan
+        let targetBlock = map[gridY][gridX];
+
+        // LOGIKA KOLISI & INTERAKSI
+        if (targetBlock === 1) {
+            // Tembok: Berhenti (sederhana tanpa sliding untuk hemat kode)
+        } else {
+            // Jalan (0), Pintu (2), atau Tameng (3)
             player.x = newX;
-        }
-        // Cek Y axis (memungkinkan sliding di tembok)
-        if (map[gridY][Math.floor(player.x / BLOCK_SIZE)] !== 1) {
             player.y = newY;
-        }
 
-        // Cek Kondisi Menang (Jika berdiri di atas angka 2)
-        const currentGridX = Math.floor(player.x / BLOCK_SIZE);
-        const currentGridY = Math.floor(player.y / BLOCK_SIZE);
-        if (map[currentGridY][currentGridX] === 2) {
-            player.won = true;
-            winScreen.style.display = 'flex';
+            // Jika menginjak Tameng (3)
+            if (targetBlock === 3) {
+                map[gridY][gridX] = 0; // Hapus tameng dari peta
+                player.shields++;
+                shieldUi.innerText = `TAMENG: ${player.shields}/${TOTAL_SHIELDS}`;
+                msgArea.innerText = "DAPAT TAMENG!";
+                msgArea.style.color = "#ffff00";
+                setTimeout(() => {
+                    msgArea.innerText = player.shields === TOTAL_SHIELDS ? "CARI PINTU KELUAR!" : "CARI LAGI...";
+                    msgArea.style.color = "#fff";
+                }, 2000);
+            }
+
+            // Jika menginjak Pintu (2)
+            if (targetBlock === 2) {
+                if (player.shields >= TOTAL_SHIELDS) {
+                    player.won = true;
+                    winScreen.style.display = 'flex';
+                } else {
+                    msgArea.innerText = "KUNCI: BUTUH 3 TAMENG!";
+                    msgArea.style.color = "#ff3333";
+                }
+            }
         }
     }
 
-    // --- FUNGSI RENDER (RAYCASTING) ---
+    // --- RAYCASTING (Visual 3D) ---
     function castRays() {
-        // Bersihkan layar
-        // Langit
-        ctx.fillStyle = "#111"; 
-        ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2);
-        // Lantai
-        ctx.fillStyle = "#222";
-        ctx.fillRect(0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2);
+        // Langit & Lantai
+        ctx.fillStyle = "#111"; ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2);
+        ctx.fillStyle = "#222"; ctx.fillRect(0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2);
 
-        // Raycasting Loop
-        for (let x = 0; x < SCREEN_WIDTH; x+=2) { // x+=2 untuk performa & gaya retro kasar
-            
-            // Hitung sudut ray
+        for (let x = 0; x < SCREEN_WIDTH; x+=2) {
             const rayAngle = (player.dir - FOV / 2.0) + (x / SCREEN_WIDTH) * FOV;
-            
             const eyeX = Math.cos(rayAngle);
             const eyeY = Math.sin(rayAngle);
 
             let distToWall = 0;
             let hitWall = false;
-            let isExit = false;
+            let blockType = 0;
 
-            // DDA Algorithm sederhana
             let testX = Math.floor(player.x / BLOCK_SIZE);
             let testY = Math.floor(player.y / BLOCK_SIZE);
-            
-            // Step size
             let stepX = Math.sign(eyeX);
             let stepY = Math.sign(eyeY);
-            
-            // Jarak ke sisi grid berikutnya
             let sideDistX = (stepX < 0 ? player.x - testX * BLOCK_SIZE : (testX + 1) * BLOCK_SIZE - player.x) / Math.abs(eyeX);
             let sideDistY = (stepY < 0 ? player.y - testY * BLOCK_SIZE : (testY + 1) * BLOCK_SIZE - player.y) / Math.abs(eyeY);
-            
-            // Delta distance
             let deltaDistX = BLOCK_SIZE / Math.abs(eyeX);
             let deltaDistY = BLOCK_SIZE / Math.abs(eyeY);
 
-            // Batas maksimal ray agar tidak infinite loop
             while (!hitWall && distToWall < 20 * BLOCK_SIZE) {
-                // Lompat ke kotak berikutnya
                 if (sideDistX < sideDistY) {
-                    sideDistX += deltaDistX;
-                    testX += stepX;
-                    distToWall = (Math.abs((testX * BLOCK_SIZE - player.x + (1 - stepX) * BLOCK_SIZE / 2) / eyeX)); // Fisheye correction later
+                    sideDistX += deltaDistX; testX += stepX;
+                    distToWall = (Math.abs((testX * BLOCK_SIZE - player.x + (1 - stepX) * BLOCK_SIZE / 2) / eyeX));
                 } else {
-                    sideDistY += deltaDistY;
-                    testY += stepY;
+                    sideDistY += deltaDistY; testY += stepY;
                     distToWall = (Math.abs((testY * BLOCK_SIZE - player.y + (1 - stepY) * BLOCK_SIZE / 2) / eyeY));
                 }
-
-                // Cek batas map
                 if (testX < 0 || testX >= MAP_SIZE || testY < 0 || testY >= MAP_SIZE) {
                     hitWall = true; distToWall = 20 * BLOCK_SIZE;
                 } else {
-                    // Cek tipe blok
-                    let block = map[testY][testX];
-                    if (block === 1) { hitWall = true; }
-                    else if (block === 2) { hitWall = true; isExit = true; }
+                    let b = map[testY][testX];
+                    if (b > 0) { hitWall = true; blockType = b; } // Tabrak apa saja selain 0
                 }
             }
 
-            // Koreksi Fisheye
             let correctDist = distToWall * Math.cos(rayAngle - player.dir);
-            
-            // Hitung tinggi tembok
             let ceiling = SCREEN_HEIGHT / 2.0 - SCREEN_HEIGHT / correctDist * BLOCK_SIZE / 2;
-            let floor = SCREEN_HEIGHT - ceiling;
-            let wallHeight = floor - ceiling;
+            let wallHeight = SCREEN_HEIGHT - 2 * ceiling;
 
-            // Tentukan Warna
+            // Penentuan Warna Berdasarkan Blok
             let color;
-            if (isExit) {
-                color = `rgb(200, 0, 0)`; // Merah untuk pintu keluar
-            } else {
-                // Shading berdasarkan jarak (semakin jauh semakin gelap)
-                let shade = 255 - (correctDist / 4); 
-                if (shade < 50) shade = 50;
-                color = `rgb(0, ${shade}, 0)`; // Hijau Matrix/Nokia
+            let shade = 255 - (correctDist / 3);
+            if (shade < 40) shade = 40;
+
+            if (blockType === 2) { // Pintu
+                color = `rgb(${shade}, 0, 0)`; 
+            } else if (blockType === 3) { // Tameng (Emas)
+                color = `rgb(${shade}, ${shade}, 0)`; 
+            } else { // Tembok Biasa
+                color = `rgb(0, ${shade}, 0)`;
             }
 
-            // Gambar garis vertikal (tembok)
             ctx.fillStyle = color;
-            ctx.fillRect(x, ceiling, 2, wallHeight); // Lebar 2 pixel
+            ctx.fillRect(x, ceiling, 2, wallHeight);
         }
     }
 
-    // --- GAMBAR MINIMAP (Kiri Atas) ---
+    // --- MINIMAP (Hanya muncul jika showMap == true) ---
     function drawMinimap() {
-        const scale = 4;
-        const offsetX = 5;
-        const offsetY = 5;
+        if (!showMap) return; // KELUAR JIKA TOMBOL TIDAK DITEKAN
+
+        const scale = 8; // Perbesar agar jelas
+        const w = MAP_SIZE * scale;
+        const h = MAP_SIZE * scale;
+        const offsetX = (SCREEN_WIDTH - w) / 2; // Tengah layar
+        const offsetY = (SCREEN_HEIGHT - h) / 2;
+
+        // Latar semi-transparan
+        ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+        ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+        
+        ctx.strokeStyle = "#33ff00";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(offsetX, offsetY, w, h);
 
         for (let y = 0; y < MAP_SIZE; y++) {
             for (let x = 0; x < MAP_SIZE; x++) {
-                if (map[y][x] === 1) ctx.fillStyle = "#555";
-                else if (map[y][x] === 2) ctx.fillStyle = "#f00";
-                else ctx.fillStyle = "#000";
+                let val = map[y][x];
+                if (val === 1) ctx.fillStyle = "#555"; // Tembok
+                else if (val === 2) ctx.fillStyle = "#f00"; // Pintu
+                else if (val === 3) ctx.fillStyle = "#ff0"; // Tameng
+                else ctx.fillStyle = "#111"; // Jalan
                 
                 ctx.fillRect(offsetX + x * scale, offsetY + y * scale, scale, scale);
             }
         }
-        // Posisi Player di minimap
-        ctx.fillStyle = "#0f0";
-        ctx.fillRect(offsetX + (player.x / BLOCK_SIZE) * scale - 1, offsetY + (player.y / BLOCK_SIZE) * scale - 1, 2, 2);
+        // Player
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        let px = offsetX + (player.x / BLOCK_SIZE) * scale;
+        let py = offsetY + (player.y / BLOCK_SIZE) * scale;
+        ctx.arc(px, py, 3, 0, Math.PI*2);
+        ctx.fill();
+
+        // Teks Bantuan
+        ctx.fillStyle = "#fff";
+        ctx.font = "16px Courier";
+        ctx.textAlign = "center";
+        ctx.fillText("PETA RAHASIA", SCREEN_WIDTH/2, offsetY - 10);
     }
 
-    // --- GAME LOOP ---
     function gameLoop() {
         update();
-        castRays();
-        drawMinimap();
+        castRays(); // Gambar dunia 3D
+        drawMinimap(); // Timpa dengan peta jika tombol ditekan
         requestAnimationFrame(gameLoop);
     }
 
-    // --- RESET GAME ---
     function resetGame() {
+        map = JSON.parse(JSON.stringify(originalMap));
         player.x = BLOCK_SIZE * 1.5;
         player.y = BLOCK_SIZE * 1.5;
         player.dir = 0;
+        player.shields = 0;
         player.won = false;
+        shieldUi.innerText = "TAMENG: 0/3";
+        msgArea.innerText = "CARI 3 TAMENG!";
+        msgArea.style.color = "#fff";
         winScreen.style.display = 'none';
-        
-        // Sedikit ubah posisi player agar terasa reset
-        keys.up = false; keys.down = false; keys.left = false; keys.right = false;
+        keys.up = false; keys.down = false; keys.left = false; keys.right = false; showMap = false;
     }
 
-    // Mulai Game
     gameLoop();
 
 </script>

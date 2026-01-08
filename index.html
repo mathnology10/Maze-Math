@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Retro Brick Maze</title>
+    <title>Math Maze: Geometri Transformasi</title>
     <style>
         /* GAYA RETRO & LAYOUT */
         body {
@@ -54,24 +54,46 @@
             text-shadow: 1px 1px 0 #000;
             z-index: 5; font-size: 14px;
         }
-        .status-msg { color: #fff; background: rgba(0,0,0,0.5); padding: 2px 5px; }
 
-        #win-screen {
+        #win-screen, #game-over-screen {
             display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.9); color: #fff;
+            background: rgba(0, 0, 0, 0.95); color: #fff;
             flex-direction: column; align-items: center; justify-content: center;
             z-index: 20; text-align: center;
         }
+
+        /* QUIZ MODAL */
+        #quiz-modal {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9); z-index: 15;
+            flex-direction: column; align-items: center; justify-content: center;
+            padding: 10px; box-sizing: border-box;
+        }
+        .quiz-box {
+            background: #222; border: 2px solid #33ff00; padding: 15px;
+            width: 90%; text-align: left; max-height: 90%; overflow-y: auto;
+        }
+        .quiz-question { margin-bottom: 15px; color: #fff; font-size: 14px; line-height: 1.4; }
+        .quiz-opt {
+            display: block; width: 100%; background: #333; color: #33ff00;
+            border: 1px solid #555; padding: 10px; margin-bottom: 8px;
+            text-align: left; cursor: pointer; font-family: inherit; font-size: 13px;
+        }
+        .quiz-opt:hover { background: #444; }
 
         button.restart-btn {
             margin-top: 15px; padding: 8px 15px; background: #33ff00; border: none;
             cursor: pointer; font-family: inherit; font-weight: bold; font-size: 16px;
         }
 
-        /* KONTROL LAYAR */
-        .controls-area {
-            margin-top: 15px; display: flex; flex-direction: row; gap: 20px; align-items: center;
+        /* AREA KONTROL & KOMPAS */
+        .controls-wrapper {
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
         }
+
         .d-pad { display: grid; grid-template-columns: 50px 50px 50px; grid-gap: 5px; }
         .btn {
             width: 50px; height: 50px; background: #333; border: 2px solid #555; color: #ddd;
@@ -81,11 +103,36 @@
         .btn:active { background: #555; border-color: #888; }
         .btn-up { grid-column: 2; } .btn-left { grid-column: 1; grid-row: 2; }
         .btn-down { grid-column: 2; grid-row: 2; } .btn-right { grid-column: 3; grid-row: 2; }
-        .btn-map {
-            width: 70px; height: 70px; background: #004400; border: 2px solid #00aa00; color: #00ff00;
-            border-radius: 50%; font-size: 14px; font-weight: bold; display: flex; align-items: center; justify-content: center; user-select: none;
+
+        /* GAYA KOMPAS */
+        .compass-container {
+            width: 70px; height: 70px;
+            background: #111;
+            border: 2px solid #555;
+            border-radius: 50%;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 10px #000;
         }
-        .btn-map:active { background: #006600; }
+        .compass-label {
+            position: absolute; color: #555; font-size: 10px; font-weight: bold;
+        }
+        .lbl-n { top: 2px; color: #d00; }
+        .lbl-e { right: 4px; }
+        .lbl-s { bottom: 2px; }
+        .lbl-w { left: 4px; }
+        
+        .compass-needle {
+            width: 4px; height: 50px;
+            background: linear-gradient(to bottom, #d00 50%, #fff 50%);
+            position: absolute;
+            border-radius: 2px;
+            transform-origin: center center;
+            transition: transform 0.1s;
+        }
+
     </style>
 </head>
 <body>
@@ -93,42 +140,126 @@
     <div id="game-container">
         <div id="ui-layer">
             <span id="shield-count">TAMENG: 0/3</span>
-            <span id="msg-area" class="status-msg">CARI 3 TAMENG!</span>
+            <span id="lives-count" style="color:#ff3333">♥♥</span>
         </div>
+        
         <canvas id="gameCanvas" width="320" height="240"></canvas>
         <div class="scanlines"></div>
+
         <div id="win-screen">
             <h2 style="color:#ffff00">MISI SUKSES!</h2>
-            <p>Semua tameng terkumpul<br>dan berhasil keluar.</p>
+            <p>Kamu Menguasai<br>Transformasi Geometri!</p>
             <button class="restart-btn" onclick="resetGame()">MAIN LAGI</button>
+        </div>
+
+        <div id="game-over-screen">
+            <h2 style="color:#ff0000">GAME OVER</h2>
+            <p>Belajar lagi ya!</p>
+            <button class="restart-btn" style="background:#ff3333; color:#fff" onclick="resetGame()">ULANGI</button>
+        </div>
+
+        <div id="quiz-modal">
+            <div class="quiz-box">
+                <div class="quiz-question" id="q-text">Soal disini...</div>
+                <div id="q-options"></div>
+            </div>
         </div>
     </div>
 
-    <div class="controls-area">
+    <div class="controls-wrapper">
         <div class="d-pad">
             <div class="btn btn-up" id="btnUp">▲</div>
             <div class="btn btn-left" id="btnLeft">◄</div>
             <div class="btn btn-down" id="btnDown">▼</div>
             <div class="btn btn-right" id="btnRight">►</div>
         </div>
-        <div class="btn btn-map" id="btnMap">PETA</div>
+        
+        <div class="compass-container">
+            <div class="compass-label lbl-n">N</div>
+            <div class="compass-label lbl-e">E</div>
+            <div class="compass-label lbl-s">S</div>
+            <div class="compass-label lbl-w">W</div>
+            <div class="compass-needle" id="compassNeedle"></div>
+        </div>
+
+        <div class="btn" style="border-radius:50%; font-size:12px; width:40px; height:40px; margin-left:10px" id="btnMap">PETA</div>
     </div>
 
 <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
+    
     const winScreen = document.getElementById('win-screen');
+    const gameOverScreen = document.getElementById('game-over-screen');
+    const quizModal = document.getElementById('quiz-modal');
+    const qText = document.getElementById('q-text');
+    const qOptions = document.getElementById('q-options');
     const shieldUi = document.getElementById('shield-count');
-    const msgArea = document.getElementById('msg-area');
+    const livesUi = document.getElementById('lives-count');
+    const needle = document.getElementById('compassNeedle');
 
     const SCREEN_WIDTH = 320;
     const SCREEN_HEIGHT = 240;
     const FOV = Math.PI / 3;
     const BLOCK_SIZE = 64;
     const MAP_SIZE = 16;
-    const SPEED = 3.0; // Sedikit diperlambat agar tekstur terasa berat
+    const SPEED = 3.0;
     const ROT_SPEED = 0.07;
     const TOTAL_SHIELDS = 3;
+
+    // --- DATABASE SOAL (Update Variasi: Garis, Kuadrat, Lingkaran) ---
+    const questionsPool = [
+        // --- TIPE 1: GARIS LURUS ---
+        {
+            q: "[Garis Lurus] Bayangan garis y = 2x + 5 oleh translasi T(0, -3) adalah...",
+            opts: ["y = 2x + 2", "y = 2x + 8", "y = 2x - 2", "y = 2x - 8"],
+            a: 0 // y = 2x + 5 - 3 => y = 2x + 2
+        },
+        {
+            q: "[Garis Lurus] Garis 3x - y = 0 digeser 2 satuan ke kanan. Persamaan barunya adalah...",
+            opts: ["3(x+2) - y = 0", "3x - y - 6 = 0", "3x - y + 6 = 0", "3x - (y-2) = 0"],
+            a: 1 // 3(x-2) - y = 0 => 3x - 6 - y = 0
+        },
+        {
+            q: "[Garis Lurus] Jika garis y = x digeser oleh T(2, 3), maka bayangannya adalah...",
+            opts: ["y - 3 = x - 2", "y + 3 = x + 2", "y = x - 1", "y = x - 5"],
+            a: 0 // (y-3) = (x-2)
+        },
+
+        // --- TIPE 2: FUNGSI KUADRAT (PARABOLA) ---
+        {
+            q: "[Kuadrat] Grafik y = x² digeser 3 satuan ke kiri. Persamaan barunya...",
+            opts: ["y = (x - 3)²", "y = (x + 3)²", "y = x² - 3", "y = x² + 3"],
+            a: 1
+        },
+        {
+            q: "[Kuadrat] Titik puncak parabola y = (x - 1)² + 2 ditranslasi oleh T(1, -2). Puncak baru di...",
+            opts: ["(0, 0)", "(2, 0)", "(2, 4)", "(0, 4)"],
+            a: 1 // Puncak lama (1,2) + (1,-2) = (2,0)
+        },
+        {
+            q: "[Kuadrat] Bayangan y = x² + 1 jika digeser 2 satuan ke bawah adalah...",
+            opts: ["y = x² - 1", "y = (x-2)² + 1", "y = x² + 3", "y = x² - 2"],
+            a: 0 // y = x^2 + 1 - 2 => y = x^2 - 1
+        },
+
+        // --- TIPE 3: LINGKARAN ---
+        {
+            q: "[Lingkaran] Lingkaran x² + y² = 9 digeser oleh T(2, -1). Persamaannya menjadi...",
+            opts: ["(x-2)² + (y+1)² = 9", "(x+2)² + (y-1)² = 9", "(x-2)² + (y-1)² = 9", "x² + y² = 8"],
+            a: 0 // Pusat (0,0) -> (2,-1)
+        },
+        {
+            q: "[Lingkaran] Pusat lingkaran (x - 3)² + (y + 2)² = 16 ditranslasi 2 satuan ke kiri...",
+            opts: ["(3, -2)", "(1, -2)", "(5, -2)", "(3, 0)"],
+            a: 1 // Pusat lama (3,-2) geser kiri 2 -> (1, -2)
+        },
+        {
+            q: "[Lingkaran] Lingkaran dengan pusat P(0,0) digeser T(5,5). Pusat barunya adalah...",
+            opts: ["(-5, -5)", "(5, 5)", "(0, 5)", "(5, 0)"],
+            a: 1
+        }
+    ];
 
     let map = [
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
@@ -150,12 +281,18 @@
     ];
     const originalMap = JSON.parse(JSON.stringify(map));
 
-    let player = { x: BLOCK_SIZE * 1.5, y: BLOCK_SIZE * 1.5, dir: 0, shields: 0, won: false };
+    let player = {
+        x: BLOCK_SIZE * 1.5, y: BLOCK_SIZE * 1.5, dir: 0,
+        shields: 0, lives: 2, won: false, dead: false
+    };
+
+    let isPaused = false;
     let showMap = false;
+    let targetShieldPos = {x: 0, y: 0};
     const keys = { up: false, down: false, left: false, right: false };
 
-    // --- INPUT HANDLING (Sama seperti sebelumnya) ---
     document.addEventListener('keydown', (e) => {
+        if(isPaused) return;
         if(e.key === 'ArrowUp' || e.key === 'w') keys.up = true;
         if(e.key === 'ArrowDown' || e.key === 's') keys.down = true;
         if(e.key === 'ArrowLeft' || e.key === 'a') keys.left = true;
@@ -169,23 +306,63 @@
         if(e.key === 'ArrowRight' || e.key === 'd') keys.right = false;
         if(e.key === 'm' || e.key === 'M') showMap = false;
     });
+
     const bindTouch = (id, key, isMap = false) => {
         const el = document.getElementById(id);
-        const start = (e) => { e.preventDefault(); if(isMap) showMap = true; else keys[key] = true; el.style.opacity = '0.5'; };
+        const start = (e) => { e.preventDefault(); if(isPaused) return; if(isMap) showMap = true; else keys[key] = true; el.style.opacity = '0.5'; };
         const end = (e) => { e.preventDefault(); if(isMap) showMap = false; else keys[key] = false; el.style.opacity = '1'; };
-        el.addEventListener('mousedown', start); el.addEventListener('mouseup', end);
         el.addEventListener('touchstart', start); el.addEventListener('touchend', end);
+        el.addEventListener('mousedown', start); el.addEventListener('mouseup', end);
     };
     bindTouch('btnUp', 'up'); bindTouch('btnDown', 'down'); bindTouch('btnLeft', 'left'); bindTouch('btnRight', 'right'); bindTouch('btnMap', 'map', true);
 
-    // --- UPDATE LOGIC (Sama seperti sebelumnya) ---
+    function triggerQuiz(gridX, gridY) {
+        isPaused = true; targetShieldPos = {x: gridX, y: gridY};
+        const randIndex = Math.floor(Math.random() * questionsPool.length);
+        const qData = questionsPool[randIndex];
+        qText.innerText = qData.q;
+        qOptions.innerHTML = '';
+        qData.opts.forEach((opt, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'quiz-opt'; btn.innerText = opt;
+            btn.onclick = () => checkAnswer(idx, qData.a);
+            qOptions.appendChild(btn);
+        });
+        quizModal.style.display = 'flex';
+        keys.up = false; keys.down = false; keys.left = false; keys.right = false;
+    }
+
+    function checkAnswer(selected, correct) {
+        if (selected === correct) {
+            map[targetShieldPos.y][targetShieldPos.x] = 0; player.shields++;
+            shieldUi.innerText = `TAMENG: ${player.shields}/${TOTAL_SHIELDS}`;
+            quizModal.style.display = 'none'; isPaused = false;
+        } else {
+            player.lives--; updateLivesUI();
+            if (player.lives <= 0) {
+                quizModal.style.display = 'none'; player.dead = true; gameOverScreen.style.display = 'flex';
+            } else {
+                alert("Jawaban SALAH! Nyawa berkurang.");
+                quizModal.style.display = 'none';
+                player.x -= Math.cos(player.dir) * 20; player.y -= Math.sin(player.dir) * 20;
+                isPaused = false;
+            }
+        }
+    }
+    function updateLivesUI() {
+        let hearts = ""; for(let i=0; i<player.lives; i++) hearts += "♥"; livesUi.innerText = hearts;
+    }
+
     function update() {
-        if (player.won) return;
+        if (player.won || player.dead || isPaused) return;
         if (keys.left) player.dir -= ROT_SPEED;
         if (keys.right) player.dir += ROT_SPEED;
+        
+        const deg = -player.dir * (180 / Math.PI);
+        needle.style.transform = `rotate(${deg}deg)`;
+
         let moveStep = 0;
-        if (keys.up) moveStep = SPEED;
-        if (keys.down) moveStep = -SPEED;
+        if (keys.up) moveStep = SPEED; if (keys.down) moveStep = -SPEED;
         let newX = player.x + Math.cos(player.dir) * moveStep;
         let newY = player.y + Math.sin(player.dir) * moveStep;
         const gridX = Math.floor(newX / BLOCK_SIZE);
@@ -193,49 +370,33 @@
         let targetBlock = map[gridY][gridX];
 
         if (targetBlock !== 1) {
+            if (targetBlock === 3) { triggerQuiz(gridX, gridY); return; }
             player.x = newX; player.y = newY;
-            if (targetBlock === 3) {
-                map[gridY][gridX] = 0; player.shields++;
-                shieldUi.innerText = `TAMENG: ${player.shields}/${TOTAL_SHIELDS}`;
-                msgArea.innerText = "DAPAT TAMENG!"; msgArea.style.color = "#ffff00";
-                setTimeout(() => { msgArea.innerText = player.shields === TOTAL_SHIELDS ? "CARI PINTU KELUAR!" : "CARI LAGI..."; msgArea.style.color = "#fff"; }, 2000);
-            }
             if (targetBlock === 2) {
-                if (player.shields >= TOTAL_SHIELDS) { player.won = true; winScreen.style.display = 'flex'; } 
-                else { msgArea.innerText = "KUNCI: BUTUH 3 TAMENG!"; msgArea.style.color = "#ff3333"; }
+                if (player.shields >= TOTAL_SHIELDS) { player.won = true; winScreen.style.display = 'flex'; }
             }
         }
     }
 
-    // --- RAYCASTING DENGAN TEKSTUR BATA PROSEDURAL ---
     function castRays() {
-        // Langit (Lebih gelap) & Lantai (Abu-abu tua)
-        ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2);
+        // --- WARNA LANGIT CERAH DISINI ---
+        ctx.fillStyle = "#40a4df"; ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2);
         ctx.fillStyle = "#2a2a2a"; ctx.fillRect(0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2);
 
-        for (let x = 0; x < SCREEN_WIDTH; x+=2) { // Resolusi horizontal 2px
+        for (let x = 0; x < SCREEN_WIDTH; x+=2) {
             const rayAngle = (player.dir - FOV / 2.0) + (x / SCREEN_WIDTH) * FOV;
-            const eyeX = Math.cos(rayAngle);
-            const eyeY = Math.sin(rayAngle);
-
+            const eyeX = Math.cos(rayAngle); const eyeY = Math.sin(rayAngle);
             let distToWall = 0; let hitWall = false; let blockType = 0; let side = 0;
-            let testX = Math.floor(player.x / BLOCK_SIZE);
-            let testY = Math.floor(player.y / BLOCK_SIZE);
+            let testX = Math.floor(player.x / BLOCK_SIZE); let testY = Math.floor(player.y / BLOCK_SIZE);
             let stepX = Math.sign(eyeX); let stepY = Math.sign(eyeY);
             let sideDistX = (stepX < 0 ? player.x - testX * BLOCK_SIZE : (testX + 1) * BLOCK_SIZE - player.x) / Math.abs(eyeX);
             let sideDistY = (stepY < 0 ? player.y - testY * BLOCK_SIZE : (testY + 1) * BLOCK_SIZE - player.y) / Math.abs(eyeY);
-            let deltaDistX = BLOCK_SIZE / Math.abs(eyeX);
-            let deltaDistY = BLOCK_SIZE / Math.abs(eyeY);
+            let deltaDistX = BLOCK_SIZE / Math.abs(eyeX); let deltaDistY = BLOCK_SIZE / Math.abs(eyeY);
 
             while (!hitWall && distToWall < 20 * BLOCK_SIZE) {
-                if (sideDistX < sideDistY) {
-                    sideDistX += deltaDistX; testX += stepX; distToWall = (Math.abs((testX * BLOCK_SIZE - player.x + (1 - stepX) * BLOCK_SIZE / 2) / eyeX));
-                    side = 0; // Hit tembok vertikal
-                } else {
-                    sideDistY += deltaDistY; testY += stepY; distToWall = (Math.abs((testY * BLOCK_SIZE - player.y + (1 - stepY) * BLOCK_SIZE / 2) / eyeY));
-                    side = 1; // Hit tembok horizontal
-                }
-                if (testX < 0 || testX >= MAP_SIZE || testY < 0 || testY >= MAP_SIZE) { hitWall = true; distToWall = 20 * BLOCK_SIZE; } 
+                if (sideDistX < sideDistY) { sideDistX += deltaDistX; testX += stepX; distToWall = (Math.abs((testX * BLOCK_SIZE - player.x + (1 - stepX) * BLOCK_SIZE / 2) / eyeX)); side = 0; }
+                else { sideDistY += deltaDistY; testY += stepY; distToWall = (Math.abs((testY * BLOCK_SIZE - player.y + (1 - stepY) * BLOCK_SIZE / 2) / eyeY)); side = 1; }
+                if (testX < 0 || testX >= MAP_SIZE || testY < 0 || testY >= MAP_SIZE) { hitWall = true; distToWall = 20 * BLOCK_SIZE; }
                 else if (map[testY][testX] > 0) { hitWall = true; blockType = map[testY][testX]; }
             }
 
@@ -243,63 +404,32 @@
             let ceiling = Math.floor(SCREEN_HEIGHT / 2.0 - SCREEN_HEIGHT / correctDist * BLOCK_SIZE / 2);
             let floor = SCREEN_HEIGHT - ceiling;
             let wallHeight = floor - ceiling;
-
-            // --- LOGIKA TEKSTUR ---
-            // Hitung posisi X tepatnya di mana sinar menabrak tembok (0.0 - 1.0)
-            let wallX; 
-            if (side === 0) wallX = player.y + distToWall * eyeY;
-            else            wallX = player.x + distToWall * eyeX;
-            wallX -= Math.floor(wallX);
             
-            // Koordinat X tekstur (0 - 63)
+            let wallX; if (side === 0) wallX = player.y + distToWall * eyeY; else wallX = player.x + distToWall * eyeX;
+            wallX -= Math.floor(wallX);
             let texX = Math.floor(wallX * BLOCK_SIZE);
             if(side === 0 && eyeX > 0) texX = BLOCK_SIZE - texX - 1;
             if(side === 1 && eyeY < 0) texX = BLOCK_SIZE - texX - 1;
 
-            // Loop vertikal untuk menggambar pixel demi pixel (untuk tekstur)
-            // Kita gambar 2 pixel sekaligus vertikal untuk performa
             for (let y = ceiling; y < floor; y+=2) {
-                // Hitung koordinat Y tekstur berdasarkan perspektif
                 let d = y * 256 - SCREEN_HEIGHT * 128 + wallHeight * 128;
                 let texY = ((d * BLOCK_SIZE) / wallHeight) / 256;
                 texY = Math.floor(texY) & (BLOCK_SIZE - 1);
+                let r, g, b;
 
-                let colorR, colorG, colorB;
-
-                // --- GENERATE POLA BATA ---
-                if (blockType === 1) { // Tembok Bata Merah
-                    const brickH = 8; // Tinggi bata
-                    const brickW = 32; // Lebar bata
-                    const mortarThickness = 2;
-
+                if (blockType === 1) { // Bata Merah
                     let isMortar = false;
-                    // Cek garis semen horizontal
-                    if (texY % brickH < mortarThickness) isMortar = true;
-                    // Cek garis semen vertikal (dengan offset setiap baris)
-                    let offsetX = (Math.floor(texY / brickH) % 2 === 0) ? 0 : brickW / 2;
-                    if ((texX + offsetX) % brickW < mortarThickness) isMortar = true;
+                    if (texY % 8 < 2) isMortar = true;
+                    let off = (Math.floor(texY / 8) % 2 === 0) ? 0 : 16;
+                    if ((texX + off) % 32 < 2) isMortar = true;
+                    if (isMortar) { r=100; g=100; b=100; } else { r=160; g=50; b=30; }
+                } else if (blockType === 2) { r=200; g=0; b=0; } // Pintu
+                else if (blockType === 3) { r=255; g=215; b=0; } // Emas
 
-                    if (isMortar) {
-                         colorR = 100; colorG = 100; colorB = 100; // Abu-abu semen
-                    } else {
-                         colorR = 180; colorG = 60; colorB = 40; // Merah bata
-                    }
-                     // Sisi tembok yang berbeda sedikit lebih gelap
-                    if(side === 1) { colorR*=0.8; colorG*=0.8; colorB*=0.8; }
-
-                } else if (blockType === 2) { // Pintu Merah (Solid)
-                    colorR = 200; colorG = 0; colorB = 0;
-                } else if (blockType === 3) { // Tameng Emas (Solid)
-                    colorR = 200; colorG = 200; colorB = 0;
-                }
-
-                // SHADING (Semakin jauh semakin gelap)
+                if(side === 1) { r*=0.8; g*=0.8; b*=0.8; }
                 let shade = 1.0 - (correctDist / (MAP_SIZE * BLOCK_SIZE * 0.8));
                 if(shade < 0.1) shade = 0.1;
-                
-                // Terapkan shading ke warna
-                ctx.fillStyle = `rgb(${colorR * shade}, ${colorG * shade}, ${colorB * shade})`;
-                // Gambar pixel (lebar 2, tinggi 2)
+                ctx.fillStyle = `rgb(${r*shade},${g*shade},${b*shade})`;
                 ctx.fillRect(x, y, 2, 2);
             }
         }
@@ -307,21 +437,19 @@
 
     function drawMinimap() {
         if (!showMap) return;
-        const scale = 8; const w = MAP_SIZE * scale; const h = MAP_SIZE * scale;
-        const offsetX = (SCREEN_WIDTH - w) / 2; const offsetY = (SCREEN_HEIGHT - h) / 2;
-        ctx.fillStyle = "rgba(0, 0, 0, 0.8)"; ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-        ctx.strokeStyle = "#33ff00"; ctx.lineWidth = 2; ctx.strokeRect(offsetX, offsetY, w, h);
-        for (let y = 0; y < MAP_SIZE; y++) {
-            for (let x = 0; x < MAP_SIZE; x++) {
-                let val = map[y][x];
-                if (val === 1) ctx.fillStyle = "#a33"; // Bata di peta jadi merah tua
-                else if (val === 2) ctx.fillStyle = "#f00"; else if (val === 3) ctx.fillStyle = "#ff0"; else ctx.fillStyle = "#111";
-                ctx.fillRect(offsetX + x * scale, offsetY + y * scale, scale, scale);
+        const s = 8; const w = MAP_SIZE * s; const h = MAP_SIZE * s;
+        const ox = (SCREEN_WIDTH - w) / 2; const oy = (SCREEN_HEIGHT - h) / 2;
+        ctx.fillStyle = "rgba(0,0,0,0.8)"; ctx.fillRect(0,0,SCREEN_WIDTH, SCREEN_HEIGHT);
+        ctx.strokeStyle="#0f0"; ctx.strokeRect(ox,oy,w,h);
+        for(let y=0; y<MAP_SIZE; y++){
+            for(let x=0; x<MAP_SIZE; x++){
+                let v = map[y][x];
+                ctx.fillStyle = v==1?"#522":v==2?"#f00":v==3?"#ff0":"#111";
+                ctx.fillRect(ox+x*s, oy+y*s, s, s);
             }
         }
-        ctx.fillStyle = "#fff"; ctx.beginPath();
-        ctx.arc(offsetX + (player.x / BLOCK_SIZE) * scale, offsetY + (player.y / BLOCK_SIZE) * scale, 3, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = "#fff"; ctx.font = "16px Courier"; ctx.textAlign = "center"; ctx.fillText("PETA RAHASIA", SCREEN_WIDTH/2, offsetY - 10);
+        ctx.fillStyle="#fff"; ctx.beginPath();
+        ctx.arc(ox+(player.x/BLOCK_SIZE)*s, oy+(player.y/BLOCK_SIZE)*s, 3, 0, Math.PI*2); ctx.fill();
     }
 
     function gameLoop() {
@@ -329,9 +457,10 @@
     }
     function resetGame() {
         map = JSON.parse(JSON.stringify(originalMap));
-        player = { x: BLOCK_SIZE * 1.5, y: BLOCK_SIZE * 1.5, dir: 0, shields: 0, won: false };
-        shieldUi.innerText = "TAMENG: 0/3"; msgArea.innerText = "CARI 3 TAMENG!"; msgArea.style.color = "#fff";
-        winScreen.style.display = 'none'; showMap = false;
+        player = { x: BLOCK_SIZE * 1.5, y: BLOCK_SIZE * 1.5, dir: 0, shields: 0, lives: 2, won: false, dead: false };
+        shieldUi.innerText = "TAMENG: 0/3"; updateLivesUI();
+        winScreen.style.display = 'none'; gameOverScreen.style.display = 'none'; quizModal.style.display = 'none';
+        isPaused = false; keys.up = false; keys.down = false; keys.left = false; keys.right = false; showMap = false;
     }
     gameLoop();
 </script>
